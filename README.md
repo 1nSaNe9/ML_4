@@ -8,22 +8,30 @@
 4. Проверить точность модели по тестовой выборке.
 5. Провести эксперименты и определить наилучшие параметры коэффициента обучения, параметра регуляризации, функции оптимизации. Данные экспериментов необходимо представить в отчете (графики, ход проведения эксперимента, выводы).
 
-## Вариант 18
-Page Blocks Classification
+## Вариант 2
+Adult
 
 ## Загрузка dataset
 ```
 from ucimlrepo import fetch_ucirepo
-page_blocks_classification = fetch_ucirepo(id=78)
 
-X = page_blocks_classification.data.features
-y = page_blocks_classification.data.targets
+# fetch dataset
+adult = fetch_ucirepo(id=2)
+
+# data (as pandas dataframes)
+X = adult.data.features
+y = adult.data.targets
 ```
 ## Разделение исходной выборки на обучающую и тестовую
 ```
+from sklearn.model_selection import train_test_split
+
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
+    X_processed, y_encoded, test_size=0.2, random_state=42
 )
+
+y_train = np.array(y_train).ravel()
+y_test = np.array(y_test).ravel()
 ```
 ## Масштабирование признаков
 
@@ -39,18 +47,26 @@ X_train, X_test, y_train, y_test = train_test_split(
 
   Масштабирование устраняет смещение из‑за разных единиц измерения, ускоряет обучение и повышает качество моделей, чувствительных к масштабу признаков.
 ```
+from sklearn.preprocessing import StandardScaler
+
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 ```
 ## Обучение Perceptron и MLPClassifier
 ```
-perceptron = Perceptron(max_iter=1000, random_state=42)
+from sklearn.linear_model import Perceptron
+from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import accuracy_score
+
+# Перцептрон
+perceptron = Perceptron(max_iter=2000, random_state=42)
 perceptron.fit(X_train_scaled, y_train)
 y_pred_perceptron = perceptron.predict(X_test_scaled)
 accuracy_perceptron = accuracy_score(y_test, y_pred_perceptron)
 
-mlp = MLPClassifier(max_iter=1000, random_state=42)
+# MLPClassifier с базовыми параметрами и увеличенным max_iter
+mlp = MLPClassifier(max_iter=2000, random_state=42)
 mlp.fit(X_train_scaled, y_train)
 y_pred_mlp = mlp.predict(X_test_scaled)
 accuracy_mlp = accuracy_score(y_test, y_pred_mlp)
@@ -60,8 +76,6 @@ accuracy_mlp = accuracy_score(y_test, y_pred_mlp)
 print(f"Точность Perceptron: {accuracy_perceptron:.4f}")
 print(f"Точность MLPClassifier: {accuracy_mlp:.4f}")
 ```
-
-![alt text](lab4_console_1.png)
 
 ## Гиперпараметры для эксперимента
 hidden_layer_sizes - размеры скрытых слоев нейронной сети
@@ -75,11 +89,12 @@ alpha — коэффициент регуляризации
 learning_rate_init — начальная скорость обучения
 ```
 param_grid = {
-    'hidden_layer_sizes': [(50,), (100,), (50,50)],
+    'hidden_layer_sizes': [(50,), (100,)],  # Уменьшил количество вариантов
     'activation': ['relu', 'tanh'],
-    'solver': ['adam', 'sgd', 'lbfgs'],
-    'alpha': [0.0001, 0.001, 0.01],
-    'learning_rate_init': [0.001, 0.01, 0.1]
+    'solver': ['adam'],  # Оставил только adam для скорости
+    'alpha': [0.0001, 0.001],
+    'learning_rate_init': [0.001, 0.01]
+}
 }
 ```
 ## Подбор гиперпараметров для модели MLPClassifier с использованием метода перебора GridSearchCV
@@ -91,11 +106,16 @@ cv=5 - стратегия кросс‑валидации (5‑fold). Данны
 
 n_jobs=-1 - количество параллельных процессов для вычислений
 ```
+from sklearn.model_selection import GridSearchCV
+
+print("Запуск GridSearch... Это может занять несколько минут...")
+
 grid_search = GridSearchCV(MLPClassifier(max_iter=1000, random_state=42),
                            param_grid,
                            scoring='accuracy',
-                           cv=5,
-                           n_jobs=-1)
+                           cv=3,  # Уменьшил количество фолдов
+                           n_jobs=-1,
+                           verbose=1)  # Добавил прогресс бар
 
 grid_search.fit(X_train_scaled, y_train)
 ```
@@ -103,27 +123,20 @@ grid_search.fit(X_train_scaled, y_train)
 ```
 print("Лучшие параметры:", grid_search.best_params_)
 print("Лучшая точность на валидационной выборке:", grid_search.best_score_)
+
+best_mlp = grid_search.best_estimator_
+y_pred_best = best_mlp.predict(X_test_scaled)
+accuracy_best = accuracy_score(y_test, y_pred_best)
+print(f"Точность лучшей модели на тестовой выборке: {accuracy_best:.4f}")
 ```
 
-![alt text](lab4_console_2.png)
+Градиентный спуск — это алгоритм оптимизации, используемый для минимизации функции потерь.
 
+Adam — это "умный" алгоритм оптимизации, который автоматически подбирает индивидуальную скорость обучения для каждого параметра модели, используя информацию о прошлых градиентах.
 
-## Визуализация
+SGD является стохастической аппроксимацией градиентного спуска, где вместо вычисления градиента по всей выборке данных используется градиент, вычисленный по одному случайно выбранному примеру. И находит хороший локальный минимум
 
-```
-results = pd.DataFrame(grid_search.cv_results_)
-scores_mean = results['mean_test_score']
-params = results['params']
-
-plt.figure(figsize=(10, 6))
-plt.plot(scores_mean, marker='o')
-plt.xlabel('Эксперимент номер')
-plt.ylabel('Средняя точность')
-plt.title('Результаты перебора гиперпараметров')
-plt.show()
-```
-![alt text](Lab4.png)
-
+L-BFGS является квазиньютоновским методом оптимизации, который аппроксимирует алгоритм BFGS, храня только последние m обновлений градиентов и параметров, что делает его применимым для больших задач.
 
 
 
