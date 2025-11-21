@@ -54,6 +54,14 @@ X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 ```
 ## Обучение Perceptron и MLPClassifier
+Perceptron (Однослойный перцептрон) — модель, имеющая только входной и выходной слои, без скрытых слоев
+
+MLPClassifier (Многослойный перцептрон) — модель, имеющая только входной, выходной и скрытые слои
+
+Отличия:
+
+Perceptron: один слой, линейная классификация
+MLP: несколько слоев, универсальный аппроксиматор (может решать нелинейные задачи)
 ```
 from sklearn.linear_model import Perceptron
 from sklearn.neural_network import MLPClassifier
